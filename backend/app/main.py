@@ -1,0 +1,48 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+
+from app.core.config import settings
+from app.core.db import engine
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    yield
+
+
+app = FastAPI(
+    title=settings.app_name,
+    description="Extraccion estructurada y busqueda semantica sobre documentos escaneados.",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health", tags=["infra"])
+def health() -> dict:
+    """Verifica que la API alcance Postgres y que pgvector este instalado."""
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+        has_vector = conn.execute(
+            text("SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'")
+        ).scalar_one()
+    return {
+        "status": "ok",
+        "database": "connected",
+        "pgvector": bool(has_vector),
+        "mock_llm": settings.mock_llm,
+        "embedding_model": settings.embedding_model,
+    }

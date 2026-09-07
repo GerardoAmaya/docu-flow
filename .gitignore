@@ -1,0 +1,16 @@
+.env
+.env.local
+*.key
+secrets/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+data/uploads/*
+data/pages/*
+!data/uploads/.gitkeep
+node_modules/
+.next/
+.DS_Store
+*.sqlite3
+.pytest_cache/
