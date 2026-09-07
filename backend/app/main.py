@@ -52,5 +52,6 @@ def health() -> dict:
         "database": "connected",
         "pgvector": bool(has_vector),
         "mock_llm": settings.mock_llm,
-        "embedding_model": settings.embedding_model,
+        "embedding_provider": settings.embedding_provider,
+        "embedding_dim": settings.embedding_dim,
     }

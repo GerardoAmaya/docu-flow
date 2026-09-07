@@ -14,9 +14,11 @@ set -euo pipefail
 echo "Ejecutando migraciones..."
 alembic upgrade head
 
+# --pool=solo evita el proceso hijo de prefork. Con prefork el modelo de
+# embeddings queda cargado dos veces y el contenedor se queda sin memoria.
 celery -A app.workers.celery_app worker \
   --loglevel="${CELERY_LOG_LEVEL:-info}" \
-  --concurrency="${CELERY_CONCURRENCY:-1}" &
+  --pool="${CELERY_POOL:-solo}" &
 worker_pid=$!
 
 uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" &

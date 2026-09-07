@@ -16,3 +16,4 @@ node_modules/
 .pytest_cache/
 frontend/.next/
 frontend/node_modules/
+.env.deploy

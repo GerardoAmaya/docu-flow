@@ -18,7 +18,11 @@ pypdfium2==4.30.0
 Pillow==11.0.0
 opencv-python-headless==4.10.0.84
 
-sentence-transformers==3.3.1
+# sentence-transformers y torch solo hacen falta con
+# EMBEDDING_PROVIDER=local. Se dejan fuera a proposito: arrastran ~2 GB
+# de imagen y ~760 MB de memoria residente.
+#   pip install sentence-transformers
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch
 
 anthropic==0.42.0
 tenacity==9.0.0

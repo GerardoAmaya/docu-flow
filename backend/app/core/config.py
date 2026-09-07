@@ -39,8 +39,21 @@ class Settings(BaseSettings):
     price_output_per_mtok: dict[str, float] = {}
 
     # --- Embeddings (locales, sin costo por token) ---
-    embedding_model: str = "intfloat/multilingual-e5-base"
-    embedding_dim: int = 768
+    # "voyage" llama a la API y no necesita torch en el contenedor.
+    # "local" usa sentence-transformers: sin costo por token, pero ~760 MB
+    # residentes y torch instalado.
+    embedding_provider: str = "voyage"
+    voyage_api_key: str | None = None
+    voyage_model: str = "voyage-4-lite"
+    embedding_dim: int = 1024
+
+    # Cuantas consultas distintas se recuerdan por proceso. Cada vector de
+    # 1024 dimensiones ocupa unos 8 KB, asi que 256 entradas son ~2 MB.
+    query_cache_size: int = 256
+
+    # Solo aplican con embedding_provider="local".
+    embedding_model: str = "intfloat/multilingual-e5-small"
+    embedding_batch_size: int = 4
     chunk_size_chars: int = 900
     chunk_overlap_chars: int = 150
 

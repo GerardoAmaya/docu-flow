@@ -37,7 +37,6 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/data
-      - hfcache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -55,7 +54,6 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/data
-      - hfcache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -65,4 +63,3 @@ services:
 
 volumes:
   pgdata:
-  hfcache:
