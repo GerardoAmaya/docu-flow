@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  /* Papel de oficina, no crema. Frio y neutro para que el amarillo de los
+     campos marcados destaque sin competir. */
+  --color-paper: #fbfbf9;
+  --color-paper-sunk: #f2f2ef;
+  --color-rule: #dde1e6;
+  --color-rule-strong: #c3cad2;
+
+  --color-ink: #16202b;
+  --color-ink-soft: #4a5a6b;
+  --color-ink-muted: #7b8794;
+
+  /* Los dos colores de estado cargan significado: ambar es "necesita ojo
+     humano", verde es "verificado". No se usan para nada mas. */
+  --color-flag: #b8730a;
+  --color-flag-wash: #fdf3e2;
+  --color-verified: #0f6b5c;
+  --color-verified-wash: #e8f4f1;
+
+  --color-link: #2a5c8a;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Cifras y NIT alineados por digito: en una tabla contable eso es funcion,
+   no decoracion. */
+.figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

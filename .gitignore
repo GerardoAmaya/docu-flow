@@ -14,3 +14,5 @@ node_modules/
 .DS_Store
 *.sqlite3
 .pytest_cache/
+frontend/.next/
+frontend/node_modules/
