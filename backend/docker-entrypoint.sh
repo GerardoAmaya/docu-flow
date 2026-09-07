@@ -14,6 +14,11 @@ set -euo pipefail
 echo "Ejecutando migraciones..."
 alembic upgrade head
 
+# Reencola documentos que quedaron a medias si el worker murio en un reinicio
+# anterior. Sin esto quedan congelados en un estado intermedio para siempre.
+echo "Buscando documentos atascados..."
+python -m scripts.reap_stale --minutes "${REAP_STALE_MINUTES:-15}" || true
+
 # --pool=solo evita el proceso hijo de prefork. Con prefork el modelo de
 # embeddings queda cargado dos veces y el contenedor se queda sin memoria.
 celery -A app.workers.celery_app worker \
