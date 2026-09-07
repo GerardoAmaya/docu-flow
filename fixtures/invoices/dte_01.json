@@ -1,0 +1,44 @@
+{
+  "identificacion": {
+    "version": 1,
+    "tipoDte": "01",
+    "numeroControl": "FAC-2026-5750",
+    "fecEmi": "2026-03-19",
+    "tipoMoneda": "USD"
+  },
+  "emisor": {
+    "nit": "0614-120380-103-5",
+    "nombre": "Panaderia La Espiga Dorada"
+  },
+  "receptor": {
+    "nit": "0614-110698-105-6",
+    "nombre": "Consultores Asociados GA, S.A. de C.V."
+  },
+  "cuerpoDocumento": [
+    {
+      "numItem": 1,
+      "descripcion": "Cafe molido premium, libra",
+      "cantidad": 8,
+      "precioUni": 6.8,
+      "ventaGravada": 54.4
+    },
+    {
+      "numItem": 2,
+      "descripcion": "Licencia de software, mensual",
+      "cantidad": 9,
+      "precioUni": 38.5,
+      "ventaGravada": 346.5
+    }
+  ],
+  "resumen": {
+    "subTotal": 400.9,
+    "tributos": [
+      {
+        "codigo": "20",
+        "descripcion": "IVA 13%",
+        "valor": 52.12
+      }
+    ],
+    "montoTotalOperacion": 453.02
+  }
+}

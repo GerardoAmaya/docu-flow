@@ -20,10 +20,13 @@ def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
+    # create_type=False evita que SQLAlchemy intente crear el tipo otra vez
+    # cuando encuentre la columna dentro de create_table. Lo creamos nosotros.
     document_status = postgresql.ENUM(
         "pending", "ocr_running", "extracting", "embedding",
         "needs_review", "completed", "failed",
         name="document_status",
+        create_type=False,
     )
     document_status.create(op.get_bind(), checkfirst=True)
 
