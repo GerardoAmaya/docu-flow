@@ -112,3 +112,63 @@ export const NUMERIC_FIELDS = new Set([
   "buyer_tax_id",
   "invoice_number",
 ]);
+
+export interface ReviewQueueItem {
+  document_id: string;
+  filename: string;
+  status: DocumentStatus;
+  pending_fields: number;
+  lowest_confidence: number;
+}
+
+export interface AggregateSummary {
+  invoice_count: number;
+  invoices_with_total: number;
+  subtotal_sum: number;
+  tax_sum: number;
+  total_sum: number;
+  earliest_issue_date: string | null;
+  latest_issue_date: string | null;
+  by_vendor: { vendor_name: string; invoice_count: number; total_sum: number }[];
+}
+
+export interface Citation {
+  quote: string;
+  document_id: string;
+  filename: string;
+  page_number: number | null;
+  bbox: BBox | null;
+}
+
+export interface ChatAnswer {
+  question: string;
+  answer: string;
+  sufficient_context: boolean;
+  retrieved_chunks: number;
+  discarded_citations: number;
+  is_aggregate_question: boolean;
+  covers_full_corpus: boolean;
+  citations: Citation[];
+}
+
+export const extraApi = {
+  reviewQueue: () =>
+    request<{ items: ReviewQueueItem[] }>("/review/queue"),
+
+  summary: () => request<AggregateSummary>("/invoices/summary"),
+
+  ask: (question: string) =>
+    request<ChatAnswer>("/chat", {
+      method: "POST",
+      body: JSON.stringify({ question }),
+    }),
+};
+
+/** Formatea montos como dinero, con el signo pegado al numero. */
+export function money(value: number | null | undefined, currency = "USD"): string {
+  if (value === null || value === undefined) return "—";
+  return `${currency} ${value.toLocaleString("es-SV", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}

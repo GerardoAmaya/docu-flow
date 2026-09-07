@@ -1,33 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { use } from "react";
+import { useSearchParams } from "next/navigation";
 import {
-  api,
+  BBox,
   DocumentSummary,
   ExtractedFieldData,
   FIELD_LABELS,
   NUMERIC_FIELDS,
   PageSummary,
+  api,
 } from "@/lib/api";
 
 const FIELD_ORDER = [
-  "vendor_name",
-  "vendor_tax_id",
-  "buyer_name",
-  "buyer_tax_id",
-  "invoice_number",
-  "issue_date",
-  "due_date",
-  "currency",
-  "subtotal",
-  "tax_amount",
-  "total",
+  "vendor_name", "vendor_tax_id", "buyer_name", "buyer_tax_id",
+  "invoice_number", "issue_date", "due_date", "currency",
+  "subtotal", "tax_amount", "total",
 ];
 
 export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  return (
+    <Suspense fallback={<p className="p-8 text-ink-muted">Cargando documento…</p>}>
+      <Review id={id} />
+    </Suspense>
+  );
+}
+
+function Review({ id }: { id: string }) {
+  const search = useSearchParams();
 
   const [document, setDocument] = useState<DocumentSummary | null>(null);
   const [pages, setPages] = useState<PageSummary[]>([]);
@@ -38,44 +40,45 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Una cita del chat llega con la zona a resaltar en la URL. Mientras esa
+  // marca esta activa manda sobre el campo seleccionado.
+  const citedBox = parseBBox(search.get("bbox"));
+  const citedPage = Number(search.get("page")) || null;
+  const [showingCitation, setShowingCitation] = useState(Boolean(citedBox));
+
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    (async () => {
       try {
         const [doc, pageList, fieldList] = await Promise.all([
-          api.getDocument(id),
-          api.listPages(id),
-          api.listFields(id),
+          api.getDocument(id), api.listPages(id), api.listFields(id),
         ]);
         if (cancelled) return;
         setDocument(doc);
         setPages(pageList.items);
         setFields(fieldList.items);
-        // Abrimos en el primer campo marcado: es donde el revisor tiene que
-        // mirar, y le ahorra buscarlo en la lista.
         setSelected(fieldList.items.find((f) => f.needs_review)?.id ?? null);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
+    })();
+    return () => { cancelled = true; };
   }, [id]);
 
   const ordered = useMemo(() => {
-    const index = new Map(FIELD_ORDER.map((name, i) => [name, i]));
+    const index = new Map(FIELD_ORDER.map((n, i) => [n, i]));
     return [...fields].sort(
       (a, b) => (index.get(a.field_name) ?? 99) - (index.get(b.field_name) ?? 99),
     );
   }, [fields]);
 
   const activeField = ordered.find((f) => f.id === selected) ?? null;
-  const activePage = activeField?.page_number ?? pages[0]?.page_number ?? 1;
-  const pendingCount = fields.filter((f) => f.needs_review).length;
+  const highlight = showingCitation && citedBox ? citedBox : activeField?.bbox ?? null;
+  const activePage =
+    (showingCitation ? citedPage : activeField?.page_number) ?? pages[0]?.page_number ?? 1;
+  const pending = fields.filter((f) => f.needs_review).length;
 
   async function save(field: ExtractedFieldData) {
     const value = draft[field.id] ?? field.corrected_value ?? field.value_text ?? "";
@@ -84,11 +87,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     try {
       const updated = await api.correctField(field.id, value);
       setFields((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
-      setDraft((prev) => {
-        const next = { ...prev };
-        delete next[field.id];
-        return next;
-      });
+      setDraft((prev) => { const n = { ...prev }; delete n[field.id]; return n; });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -96,71 +95,101 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     }
   }
 
-  if (loading) {
-    return <p className="p-8 text-ink-muted">Cargando documento…</p>;
-  }
+  if (loading) return <p className="p-8 text-ink-muted">Cargando documento…</p>;
 
   if (error && !document) {
     return (
       <div className="p-8">
         <p className="text-flag">No se pudo cargar el documento.</p>
         <p className="mt-2 text-sm text-ink-muted">{error}</p>
-        <Link href="/" className="mt-4 inline-block text-link underline">
-          Volver a la lista
-        </Link>
+        <Link href="/" className="mt-4 inline-block text-link underline">Volver</Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-rule px-6 py-4">
-        <Link href="/" className="text-sm text-link hover:underline">
-          Documentos
-        </Link>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-xl font-semibold">{document?.filename}</h1>
-          {pendingCount > 0 ? (
-            <span className="rounded-sm bg-flag-wash px-2 py-0.5 text-sm text-flag">
-              {pendingCount} {pendingCount === 1 ? "campo necesita" : "campos necesitan"} revisión
-            </span>
-          ) : (
-            <span className="rounded-sm bg-verified-wash px-2 py-0.5 text-sm text-verified">
-              Todo verificado
-            </span>
-          )}
+    <div>
+      <header className="border-b border-rule bg-paper-sunk px-6 py-4">
+        <div className="mx-auto max-w-6xl">
+          <Link href="/" className="text-sm text-link hover:underline">
+            ← Todas las facturas
+          </Link>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+            <h1 className="text-xl font-semibold">{document?.filename}</h1>
+            {pending > 0 ? (
+              <span className="bg-flag-wash px-2 py-0.5 text-sm text-flag">
+                {pending} {pending === 1 ? "campo necesita" : "campos necesitan"} revisión
+              </span>
+            ) : (
+              <span className="bg-verified-wash px-2 py-0.5 text-sm text-verified">
+                Todo verificado
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="grid gap-0 lg:grid-cols-[1.1fr_1fr]">
+      <div className="mx-auto grid max-w-6xl lg:grid-cols-[1.1fr_1fr]">
         <section className="border-rule p-6 lg:border-r">
-          <PageWithHighlight
-            documentId={id}
-            pageNumber={activePage}
-            bbox={activeField?.bbox ?? null}
-            label={activeField ? FIELD_LABELS[activeField.field_name] : null}
-          />
+          <figure className="sticky top-6">
+            <div className="relative overflow-hidden border border-rule bg-paper-sunk">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={api.pageImageUrl(id, activePage)}
+                alt={`Página ${activePage}`}
+                className="block w-full"
+              />
+              {highlight && (
+                // Los bbox vienen normalizados 0-1, así que como porcentajes de
+                // CSS el recuadro escala solo con la imagen a cualquier zoom.
+                <div
+                  className={`pointer-events-none absolute border-2 ${showingCitation ? "border-link bg-link/15" : "border-flag bg-flag/15"}`}
+                  style={{
+                    left: `${highlight.x * 100}%`,
+                    top: `${highlight.y * 100}%`,
+                    width: `${highlight.w * 100}%`,
+                    height: `${highlight.h * 100}%`,
+                  }}
+                />
+              )}
+            </div>
+            <figcaption className="mt-2 flex items-baseline justify-between gap-3 text-sm text-ink-muted">
+              <span>
+                {showingCitation
+                  ? "Zona citada en la respuesta"
+                  : highlight
+                    ? `Zona del campo ${activeField ? FIELD_LABELS[activeField.field_name] : ""}`
+                    : "Este campo no tiene una zona localizada"}
+              </span>
+              {showingCitation && (
+                <button
+                  type="button"
+                  onClick={() => setShowingCitation(false)}
+                  className="shrink-0 text-link hover:underline"
+                >
+                  Quitar
+                </button>
+              )}
+            </figcaption>
+          </figure>
         </section>
 
         <section className="p-6">
           {error && (
-            <p className="mb-4 rounded-sm bg-flag-wash px-3 py-2 text-sm text-flag">
+            <p className="mb-4 bg-flag-wash px-3 py-2 text-sm text-flag">
               No se guardó el cambio. {error}
             </p>
           )}
-
           <ul className="divide-y divide-rule">
             {ordered.map((field) => (
               <FieldRow
                 key={field.id}
                 field={field}
-                isSelected={field.id === selected}
+                isSelected={field.id === selected && !showingCitation}
                 draftValue={draft[field.id]}
                 isSaving={saving === field.id}
-                onSelect={() => setSelected(field.id)}
-                onChange={(value) =>
-                  setDraft((prev) => ({ ...prev, [field.id]: value }))
-                }
+                onSelect={() => { setSelected(field.id); setShowingCitation(false); }}
+                onChange={(v) => setDraft((p) => ({ ...p, [field.id]: v }))}
                 onSave={() => save(field)}
               />
             ))}
@@ -171,64 +200,15 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   );
 }
 
-function PageWithHighlight({
-  documentId,
-  pageNumber,
-  bbox,
-  label,
-}: {
-  documentId: string;
-  pageNumber: number;
-  bbox: { x: number; y: number; w: number; h: number } | null;
-  label: string | null;
-}) {
-  return (
-    <figure className="sticky top-6">
-      <div className="relative overflow-hidden border border-rule bg-paper-sunk">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={api.pageImageUrl(documentId, pageNumber)}
-          alt={`Página ${pageNumber} del documento`}
-          className="block w-full"
-        />
-        {bbox && (
-          // Las coordenadas vienen normalizadas 0-1, asi que el overlay escala
-          // solo con la imagen sin importar el zoom ni el DPI del render.
-          <div
-            className="pointer-events-none absolute border-2 border-flag bg-flag/15"
-            style={{
-              left: `${bbox.x * 100}%`,
-              top: `${bbox.y * 100}%`,
-              width: `${bbox.w * 100}%`,
-              height: `${bbox.h * 100}%`,
-            }}
-          />
-        )}
-      </div>
-      <figcaption className="mt-2 text-sm text-ink-muted">
-        {bbox
-          ? `Página ${pageNumber} · zona resaltada: ${label}`
-          : `Página ${pageNumber} · este campo no tiene una zona localizada en la imagen`}
-      </figcaption>
-    </figure>
-  );
-}
-
 function FieldRow({
-  field,
-  isSelected,
-  draftValue,
-  isSaving,
-  onSelect,
-  onChange,
-  onSave,
+  field, isSelected, draftValue, isSaving, onSelect, onChange, onSave,
 }: {
   field: ExtractedFieldData;
   isSelected: boolean;
   draftValue: string | undefined;
   isSaving: boolean;
   onSelect: () => void;
-  onChange: (value: string) => void;
+  onChange: (v: string) => void;
   onSave: () => void;
 }) {
   const stored = field.corrected_value ?? field.value_text ?? "";
@@ -237,9 +217,7 @@ function FieldRow({
   const isNumeric = NUMERIC_FIELDS.has(field.field_name);
 
   return (
-    <li
-      className={`py-3 pl-3 ${isSelected ? "border-l-2 border-l-link bg-paper-sunk" : "border-l-2 border-l-transparent"}`}
-    >
+    <li className={`border-l-2 py-3 pl-3 transition-colors ${isSelected ? "border-l-link bg-paper-sunk" : "border-l-transparent"}`}>
       <button
         type="button"
         onClick={onSelect}
@@ -248,7 +226,7 @@ function FieldRow({
         <span className="text-sm text-ink-soft">
           {FIELD_LABELS[field.field_name] ?? field.field_name}
         </span>
-        <ConfidenceTag field={field} />
+        <Confidence field={field} />
       </button>
 
       <div className="mt-2 flex items-center gap-2 pr-3">
@@ -257,7 +235,7 @@ function FieldRow({
           onChange={(e) => onChange(e.target.value)}
           onFocus={onSelect}
           placeholder="Sin dato"
-          className={`w-full border border-rule bg-paper px-2 py-1.5 text-ink placeholder:text-ink-muted ${isNumeric ? "figure text-right" : ""}`}
+          className={`w-full border border-rule bg-paper px-2 py-1.5 placeholder:text-ink-muted ${isNumeric ? "figure text-right" : ""}`}
         />
         {dirty && (
           <button
@@ -281,17 +259,41 @@ function FieldRow({
   );
 }
 
-function ConfidenceTag({ field }: { field: ExtractedFieldData }) {
+function Confidence({ field }: { field: ExtractedFieldData }) {
   if (field.reviewed_at) {
-    return <span className="text-sm text-verified">Corregido</span>;
+    return <span className="shrink-0 text-sm text-verified">Corregido</span>;
   }
   if (field.value_text === null) {
-    return <span className="text-sm text-ink-muted">No encontrado</span>;
+    return <span className="shrink-0 text-sm text-ink-muted">No encontrado</span>;
   }
+
   const percent = Math.round(field.confidence * 100);
+  const flagged = field.needs_review;
+
+  // Una barra hace comparable la confianza de un vistazo; el numero solo
+  // obliga a leer fila por fila.
   return (
-    <span className={`figure text-sm ${field.needs_review ? "text-flag" : "text-ink-muted"}`}>
-      {percent}%
+    <span className="flex shrink-0 items-center gap-2">
+      <span
+        aria-hidden
+        className="block h-1 w-16 bg-rule"
+      >
+        <span
+          className={`block h-full ${flagged ? "bg-flag" : "bg-verified"}`}
+          style={{ width: `${Math.max(percent, 2)}%` }}
+        />
+      </span>
+      <span className={`figure w-9 text-right text-sm ${flagged ? "text-flag" : "text-ink-muted"}`}>
+        {percent}%
+      </span>
     </span>
   );
+}
+
+function parseBBox(raw: string | null): BBox | null {
+  if (!raw) return null;
+  const parts = raw.split(",").map(Number);
+  if (parts.length !== 4 || parts.some(Number.isNaN)) return null;
+  const [x, y, w, h] = parts;
+  return { x, y, w, h };
 }
