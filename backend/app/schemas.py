@@ -197,3 +197,18 @@ class AggregateSummary(BaseModel):
     earliest_issue_date: date | None = None
     latest_issue_date: date | None = None
     by_vendor: list[VendorTotal]
+
+
+class VendorGroup(BaseModel):
+    canonical_name: str
+    invoice_count: int
+    total_sum: float
+    # Todas las variantes de escritura que se fusionaron en este grupo.
+    # Exponerlas deja auditar la decision en vez de confiar a ciegas.
+    variants: list[str]
+    merged: bool
+
+
+class VendorGroupList(BaseModel):
+    threshold: float
+    items: list[VendorGroup]

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text as sql_text
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -20,6 +20,8 @@ from app.schemas import (
     InvoiceDetail,
     ReviewQueue,
     ReviewQueueItem,
+    VendorGroup,
+    VendorGroupList,
     VendorTotal,
 )
 from app.services.extraction import parse_date, parse_money
@@ -250,5 +252,74 @@ def invoice_summary(
                 vendor_name=v[0], invoice_count=v[1], total_sum=float(v[2])
             )
             for v in vendors
+        ],
+    )
+
+
+@router.get("/invoices/vendors", response_model=VendorGroupList)
+def vendors_deduplicated(
+    threshold: float = Query(default=0.55, ge=0.1, le=1.0),
+    db: Session = Depends(get_db),
+) -> VendorGroupList:
+    """Agrupa proveedores tolerando variaciones de OCR.
+
+    El OCR lee "Servicios Informaticos Pipil, S.A. de C.V." en un documento y
+    "Servicios informaticos Pipil, S.A." en otro. Agrupar por texto exacto
+    parte el mismo proveedor en dos y arruina cualquier reporte.
+
+    Usamos similitud de trigramas de pg_trgm, apoyada en el indice
+    ix_invoices_vendor_trgm. Como canonico elegimos la variante con mas
+    facturas y, a igualdad, la mas larga: el OCR tiende a truncar, no a
+    inventar texto de mas.
+
+    Limitacion: la asignacion es voraz, no un clustering transitivo. Si A se
+    parece a B y B a C pero A no a C, el agrupamiento depende del orden. Con
+    catalogos de proveedores reales alcanza; a escala convendria un algoritmo
+    de componentes conexas.
+    """
+    statement = sql_text("""
+        WITH names AS (
+            SELECT vendor_name,
+                   COUNT(*) AS invoice_count,
+                   COALESCE(SUM(total), 0) AS total_sum
+            FROM invoices
+            WHERE vendor_name IS NOT NULL
+            GROUP BY vendor_name
+        ),
+        canonical AS (
+            SELECT a.vendor_name,
+                   a.invoice_count,
+                   a.total_sum,
+                   (
+                       SELECT b.vendor_name FROM names b
+                       WHERE similarity(a.vendor_name, b.vendor_name) >= :threshold
+                       ORDER BY b.invoice_count DESC,
+                                length(b.vendor_name) DESC,
+                                b.vendor_name ASC
+                       LIMIT 1
+                   ) AS canonical_name
+            FROM names a
+        )
+        SELECT canonical_name,
+               SUM(invoice_count) AS invoice_count,
+               SUM(total_sum) AS total_sum,
+               array_agg(vendor_name ORDER BY vendor_name) AS variants
+        FROM canonical
+        GROUP BY canonical_name
+        ORDER BY SUM(total_sum) DESC
+    """)
+
+    rows = db.execute(statement, {"threshold": threshold}).all()
+    return VendorGroupList(
+        threshold=threshold,
+        items=[
+            VendorGroup(
+                canonical_name=r.canonical_name,
+                invoice_count=r.invoice_count,
+                total_sum=float(r.total_sum),
+                variants=list(r.variants),
+                merged=len(r.variants) > 1,
+            )
+            for r in rows
         ],
     )
