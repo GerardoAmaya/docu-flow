@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import documents, invoices, pages
+from app.api import chat, documents, invoices, pages, search
 from app.core.config import settings
 from app.core.db import engine
 
@@ -35,6 +35,8 @@ app.add_middleware(
 app.include_router(documents.router)
 app.include_router(pages.router)
 app.include_router(invoices.router)
+app.include_router(search.router)
+app.include_router(chat.router)
 
 
 @app.get("/health", tags=["infra"])

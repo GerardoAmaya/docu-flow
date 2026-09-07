@@ -130,3 +130,46 @@ class CostStats(BaseModel):
     documents_processed: int
     cost_per_document_usd: float
     projected_cost_per_1000_docs_usd: float
+
+
+class SearchResult(BaseModel):
+    chunk_id: uuid.UUID
+    document_id: uuid.UUID
+    filename: str
+    page_number: int | None = None
+    content: str
+    score: float
+    # Posicion en cada una de las dos ramas. None significa que esa rama no
+    # encontro el fragmento, lo que hace visible el aporte de cada indice.
+    vector_rank: int | None = None
+    text_rank: int | None = None
+
+
+class SearchResponse(BaseModel):
+    query: str
+    items: list[SearchResult]
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=2000)
+    top_k: int = Field(default=8, ge=1, le=20)
+    # Limita la busqueda a un documento. Util para "preguntale a esta factura".
+    document_id: uuid.UUID | None = None
+
+
+class CitationOut(BaseModel):
+    quote: str
+    document_id: uuid.UUID
+    filename: str
+    page_number: int | None = None
+    # Zona de la pagina que respalda la cita, normalizada 0-1.
+    bbox: dict | None = None
+
+
+class ChatResponse(BaseModel):
+    question: str
+    answer: str
+    sufficient_context: bool
+    retrieved_chunks: int
+    discarded_citations: int
+    citations: list[CitationOut]

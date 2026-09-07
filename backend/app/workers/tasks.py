@@ -23,6 +23,7 @@ from app.services.extraction import (
     parse_date,
     parse_money,
 )
+from app.services.embeddings import chunk_text, embed_passages
 from app.services.llm import LLMClient
 from app.services.ocr import ocr_document
 from app.workers.celery_app import celery_app
@@ -89,7 +90,9 @@ def process_document(self, document_id: str) -> dict:
         db.commit()
         fields_needing_review = _extract_fields(db, document, pages)
 
-        # TODO paso 6: chunking y embeddings
+        document.status = DocumentStatus.embedding
+        db.commit()
+        chunk_count = _index_chunks(db, document, pages)
 
         # Cualquiera de las dos senales manda el documento a revision: OCR
         # pobre o campos que no pasaron la verificacion.
@@ -102,17 +105,20 @@ def process_document(self, document_id: str) -> dict:
         db.commit()
 
         logger.info(
-            "Processed document %s: %s pages, %s low-confidence pages, %s fields to review",
+            "Processed document %s: %s pages, %s low-confidence pages, "
+            "%s fields to review, %s chunks indexed",
             document_id,
             len(pages),
             low_confidence_pages,
             fields_needing_review,
+            chunk_count,
         )
         return {
             "document_id": document_id,
             "pages": len(pages),
             "low_confidence_pages": low_confidence_pages,
             "fields_needing_review": fields_needing_review,
+            "chunks": chunk_count,
             "status": document.status.value,
         }
 
@@ -184,3 +190,36 @@ def _extract_fields(db, document, ocr_pages) -> int:
     )
     db.commit()
     return needing_review
+
+
+def _index_chunks(db, document, ocr_pages) -> int:
+    """Parte el texto de cada pagina y guarda los chunks con su embedding.
+
+    Vectorizamos todos los fragmentos en una sola llamada al modelo: el costo
+    dominante es cargar el batch, no procesarlo, asi que hacerlo uno por uno
+    seria varias veces mas lento.
+    """
+    page_ids = {p.page_number: p.id for p in document.pages}
+
+    pending: list[tuple[int, str]] = []
+    for page in ocr_pages:
+        pending.extend(chunk_text(page.text, page.page_number))
+
+    if not pending:
+        return 0
+
+    vectors = embed_passages([content for _, content in pending])
+
+    for index, ((page_number, content), vector) in enumerate(zip(pending, vectors)):
+        db.add(
+            Chunk(
+                document_id=document.id,
+                page_id=page_ids.get(page_number),
+                page_number=page_number,
+                chunk_index=index,
+                content=content,
+                embedding=vector,
+            )
+        )
+    db.commit()
+    return len(pending)
