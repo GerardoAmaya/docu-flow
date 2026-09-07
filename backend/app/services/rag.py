@@ -39,12 +39,20 @@ Rules:
   excerpt.
 - The excerpts come from OCR and may contain errors. Report what they say.
 - Answer in the same language as the question.
+- CRITICAL: the excerpts are a SAMPLE retrieved by search, not the full
+  document set. Never state a sum, count, maximum, minimum or average as if it
+  covered everything. If the question asks for one, answer only about the
+  excerpts you were given, say explicitly how many documents they cover, and
+  set `covers_full_corpus` to false. Aggregate questions are answered from the
+  database, not from you.
 
 Schema:
 {
   "answer": str,
   "citations": [{"excerpt_id": int, "quote": str}],
-  "sufficient_context": bool
+  "sufficient_context": bool,
+  "is_aggregate_question": bool,
+  "covers_full_corpus": bool
 }"""
 
 
@@ -67,6 +75,8 @@ class RAGAnswer:
     sufficient_context: bool
     retrieved: int
     discarded_citations: int
+    is_aggregate_question: bool = False
+    covers_full_corpus: bool = False
 
 
 def build_context(hits: list[SearchHit]) -> str:
@@ -137,6 +147,8 @@ def answer_question(
             ),
             "citations": [],
             "sufficient_context": False,
+            "is_aggregate_question": False,
+            "covers_full_corpus": False,
         },
     )
 
@@ -184,4 +196,6 @@ def answer_question(
         sufficient_context=bool(data.get("sufficient_context", False)),
         retrieved=len(hits),
         discarded_citations=discarded,
+        is_aggregate_question=bool(data.get("is_aggregate_question", False)),
+        covers_full_corpus=bool(data.get("covers_full_corpus", False)),
     )

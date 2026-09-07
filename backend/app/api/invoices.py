@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.models import Document, ExtractedField, Invoice, LLMCall
 from app.schemas import (
+    AggregateSummary,
     CostStats,
     FieldCorrection,
     FieldDetail,
@@ -19,6 +20,7 @@ from app.schemas import (
     InvoiceDetail,
     ReviewQueue,
     ReviewQueueItem,
+    VendorTotal,
 )
 from app.services.extraction import parse_date, parse_money
 
@@ -191,4 +193,62 @@ def cost_stats(db: Session = Depends(get_db)) -> CostStats:
         projected_cost_per_1000_docs_usd=(
             round(total_cost / documents * 1000, 2) if documents else 0.0
         ),
+    )
+
+
+@router.get("/invoices/summary", response_model=AggregateSummary)
+def invoice_summary(
+    limit_vendors: int = Query(default=10, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> AggregateSummary:
+    """Agregados sobre TODAS las facturas, calculados en SQL.
+
+    Existe porque el RAG no puede responder esto de forma confiable: un
+    recuperador top-k solo ve una muestra del corpus y termina afirmando
+    "el total" sobre un subconjunto. La extraccion estructurada del paso 5
+    es la que hace posible responderlo bien.
+    """
+    totals = db.execute(
+        select(
+            func.count(Invoice.id),
+            func.coalesce(func.sum(Invoice.subtotal), 0),
+            func.coalesce(func.sum(Invoice.tax_amount), 0),
+            func.coalesce(func.sum(Invoice.total), 0),
+            func.min(Invoice.issue_date),
+            func.max(Invoice.issue_date),
+        )
+    ).one()
+
+    # Cuantas facturas aportaron cada monto: un total sobre 9 de 12 facturas
+    # no es el total, y el consumidor de la API tiene que poder saberlo.
+    complete = db.scalar(
+        select(func.count()).select_from(Invoice).where(Invoice.total.isnot(None))
+    ) or 0
+
+    vendors = db.execute(
+        select(
+            Invoice.vendor_name,
+            func.count(Invoice.id),
+            func.coalesce(func.sum(Invoice.total), 0),
+        )
+        .where(Invoice.vendor_name.isnot(None))
+        .group_by(Invoice.vendor_name)
+        .order_by(func.sum(Invoice.total).desc().nulls_last())
+        .limit(limit_vendors)
+    ).all()
+
+    return AggregateSummary(
+        invoice_count=totals[0],
+        invoices_with_total=complete,
+        subtotal_sum=float(totals[1]),
+        tax_sum=float(totals[2]),
+        total_sum=float(totals[3]),
+        earliest_issue_date=totals[4],
+        latest_issue_date=totals[5],
+        by_vendor=[
+            VendorTotal(
+                vendor_name=v[0], invoice_count=v[1], total_sum=float(v[2])
+            )
+            for v in vendors
+        ],
     )

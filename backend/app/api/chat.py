@@ -35,6 +35,8 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
         sufficient_context=result.sufficient_context,
         retrieved_chunks=result.retrieved,
         discarded_citations=result.discarded_citations,
+        is_aggregate_question=result.is_aggregate_question,
+        covers_full_corpus=result.covers_full_corpus,
         citations=[
             CitationOut(
                 quote=c.quote,

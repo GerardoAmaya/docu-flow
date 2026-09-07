@@ -172,4 +172,28 @@ class ChatResponse(BaseModel):
     sufficient_context: bool
     retrieved_chunks: int
     discarded_citations: int
+    # True cuando la pregunta pide una suma, conteo o extremo. Si ademas
+    # covers_full_corpus es False, la respuesta cubre solo la muestra
+    # recuperada y el cliente deberia consultar /invoices/summary.
+    is_aggregate_question: bool = False
+    covers_full_corpus: bool = False
     citations: list[CitationOut]
+
+
+class VendorTotal(BaseModel):
+    vendor_name: str
+    invoice_count: int
+    total_sum: float
+
+
+class AggregateSummary(BaseModel):
+    invoice_count: int
+    # Cuantas de esas facturas tienen total extraido. La diferencia entre
+    # ambos numeros es la cobertura real detras de las sumas.
+    invoices_with_total: int
+    subtotal_sum: float
+    tax_sum: float
+    total_sum: float
+    earliest_issue_date: date | None = None
+    latest_issue_date: date | None = None
+    by_vendor: list[VendorTotal]
