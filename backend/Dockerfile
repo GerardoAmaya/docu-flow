@@ -23,5 +23,15 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
+RUN chmod +x docker-entrypoint.sh
+
+# Precarga los pesos del modelo de embeddings en la imagen. Sin esto, el
+# primer request en produccion espera una descarga de ~450 MB.
+ARG PRELOAD_EMBEDDINGS=false
+RUN if [ "$PRELOAD_EMBEDDINGS" = "true" ]; then \
+      python -c "from sentence_transformers import SentenceTransformer; \
+                 SentenceTransformer('intfloat/multilingual-e5-base')"; \
+    fi
+
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./docker-entrypoint.sh"]

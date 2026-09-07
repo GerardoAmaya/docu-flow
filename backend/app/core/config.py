@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     app_name: str = "DocuFlow"
     environment: str = "development"
 
+    # Origenes permitidos, separados por coma. En produccion hay que poner el
+    # dominio real del frontend: con localhost cableado, el navegador bloquea
+    # todas las llamadas desde el sitio desplegado.
+    cors_origins: str = "http://localhost:3000"
+
+
     database_url: str = "postgresql+psycopg://docuflow:docuflow@db:5432/docuflow"
     redis_url: str = "redis://redis:6379/0"
 
@@ -46,6 +52,11 @@ class Settings(BaseSettings):
 
     # Un campo extraído por debajo de este umbral entra a la cola de revisión.
     field_review_threshold: float = 0.85
+
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 @lru_cache
