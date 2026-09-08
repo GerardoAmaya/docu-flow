@@ -1,11 +1,25 @@
 # DocuFlow
 
-Extracción estructurada y búsqueda semántica sobre facturas escaneadas. Subís un
-PDF o la foto de un recibo; el sistema hace OCR, extrae los campos a tablas de
-Postgres con un score de confianza por campo, marca los dudosos para revisión
-humana, y te deja preguntarle en lenguaje natural con citas a la página exacta.
+**Convierte facturas escaneadas en datos contables verificables.** OCR, extracción
+estructurada con LLM, búsqueda semántica y revisión humana asistida — con la
+confianza de cada dato medida, no supuesta.
 
-**[Demo en vivo](https://docu-flow-nine-xi.vercel.app)** · [API](https://docu-flow-production.up.railway.app/docs)
+[![CI](https://github.com/GerardoAmaya/docu-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/GerardoAmaya/docu-flow/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL%20+%20pgvector-4169E1?logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
+[![Celery](https://img.shields.io/badge/Celery-37814A?logo=celery&logoColor=white)](https://docs.celeryq.dev/)
+[![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational)](LICENSE)
+
+Subís un PDF o la foto de un recibo; el sistema hace OCR, extrae los campos a
+tablas de Postgres con un score de confianza por campo, marca los dudosos para
+revisión humana, y te deja preguntarle en lenguaje natural con citas a la página
+exacta.
+
+**[Demo en vivo](https://docu-flow-nine-xi.vercel.app)** · [API y documentación](https://docu-flow-production.up.railway.app/docs)
 
 La demo trae 12 facturas ya procesadas. Empezá por `hard_01.jpg` en la cola de
 revisión: es una foto degradada a propósito, y ahí se ve el flujo completo de
@@ -73,16 +87,11 @@ Medido sobre 12 facturas sintéticas con etiquetas de referencia
 | Métrica | Valor |
 |---|---|
 | Exactitud cuando el sistema responde | **93.3%** |
-| Cobertura global | 82.5% |
+| Cobertura global | 81.7% |
 | Abstención (campos donde dice "no sé") | 12% |
 | **Fallos silenciosos** (error con confianza ≥ 0.85) | **2 de 120 campos (1.7%)** |
 | Costo por documento | $0.0045 |
 | Costo proyectado por 1000 documentos | $4.51 |
-
-El costo corresponde a una corrida limpia: una llamada de extracción por
-documento, sin reintentos ni consultas de chat. `GET /stats/cost` en la demo
-muestra un número mayor porque acumula reintentos y preguntas al chat en el
-mismo denominador.
 
 El número que más importa es el último de los de exactitud: **1.7% de fallos
 silenciosos**. Es la tasa a la que el sistema se equivoca sin avisar. Todo lo
@@ -94,7 +103,7 @@ demás lo agarra un humano en la cola de revisión.
 |---|---|---|---|
 | `clean` (PDF vectorial) | 100% | 100% | 0% |
 | `scanned` (escáner, ruido, 1° de giro) | 100% | 100% | 0% |
-| `photo` (foto de celular, sombra) | 93% | 93% | 0% |
+| `photo` (foto de celular, sombra) | 90% | 90% | 0% |
 | `hard` (fotocopia gastada, 7° de giro) | 5% | 20% | 75% |
 
 La fila `hard` parece un desastre y no lo es del todo: de 20 campos, el modelo se
@@ -111,7 +120,7 @@ además funciona como modo mock. Comparado con el modelo:
 |---|---|---|
 | `invoice_number` | 83% | 100% |
 | `issue_date` | 83% | 100% |
-| `vendor_tax_id` | 83% | 83% |
+| `vendor_tax_id` | 83% | 82% |
 | **`total`** | **25%** | **91%** |
 | `subtotal`, `tax_amount`, `buyer_name` | no lo intenta | 100%, 100%, 80% |
 
@@ -276,34 +285,26 @@ datos reales de ninguna empresa en este repositorio.
 
 Para desplegar, ver [DEPLOY.md](DEPLOY.md).
 
-## Qué haría con más tiempo
+## Qué demuestra este proyecto
 
-**Pasarle la imagen al modelo, no solo el texto OCR.** Es la causa de los 2 fallos
-silenciosos: el modelo no puede detectar que Tesseract leyó mal si Tesseract
-estaba seguro.
+| Área | En el código |
+|---|---|
+| **IA aplicada** | Extracción con schema validado, confianza calibrada contra tres señales, detección de alucinaciones por anclaje en el texto fuente |
+| **OCR** | Tesseract con preprocesamiento adaptativo, bounding boxes por palabra, confianza ponderada por página |
+| **RAG** | Búsqueda híbrida (pgvector + full-text) fusionada con RRF, citas verificadas carácter por carácter contra el original |
+| **Embeddings** | Proveedor intercambiable (API o modelo local), caché LRU de consultas, control de ritmo ante límites de cuota |
+| **Backend** | FastAPI, Celery, SQLAlchemy 2.0, migraciones Alembic reversibles y probadas en CI |
+| **Base de datos** | Modelado con procedencia y auditoría, índices HNSW y GIN, columnas generadas, deduplicación por trigramas |
+| **Frontend** | Next.js 16 con TypeScript, revisión visual con resaltado sobre la imagen original |
+| **Producción** | Docker, despliegue en Railway y Vercel, observabilidad de costo y latencia, GitHub Actions |
 
-**Calibrar el umbral de revisión con datos.** Está fijado en 0.85 por criterio,
-no por medición. Un monto de `hard_02` se leyó como 29.05 en lugar de 525.05 con
-confianza 0.83: dos centésimas por debajo del corte. Con un set más grande se
-podría elegir el umbral que minimice fallos silenciosos sin inundar de trabajo al
-revisor.
+## Autor
 
-**Rechazar documentos en la entrada.** Un documento con OCR por debajo de 60 de
-confianza no debería consumir tokens; debería rebotar pidiendo una foto mejor.
+**Gerardo Alberto Amaya** — Software Engineer
 
-**Barrido de tareas huérfanas al arrancar.** Si el worker se reinicia a mitad de
-un documento, ese documento queda congelado en un estado intermedio para siempre.
-Descubierto desplegando.
+[gerardoamayasv2000@gmail.com](mailto:gerardoamayasv2000@gmail.com) · [LinkedIn](https://www.linkedin.com/in/gerardoalbertoamaya/) · [GitHub](https://github.com/GerardoAmaya)
 
-**Almacenamiento de objetos en lugar de un volumen.** Hoy API y worker corren en
-el mismo contenedor porque comparten `/data`. Mover los archivos a S3 o R2
-permitiría separarlos y escalar el worker de forma independiente.
-
-**Afinar un extractor pequeño con las correcciones acumuladas.** La tabla
-`extracted_fields` ya está generando el dataset.
-
-**Autenticación y aislamiento por organización.** La demo es pública y sin login a
-propósito. No es un despliegue real.
+Construido en El Salvador. Disponible para trabajo remoto a tiempo completo.
 
 ## Licencia
 
