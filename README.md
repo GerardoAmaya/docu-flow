@@ -302,10 +302,12 @@ Para desplegar, ver [DEPLOY.md](DEPLOY.md).
 
 **Gerardo Alberto Amaya** — Software Engineer
 
-[gerardoamayasv2000@gmail.com](mailto:gerardoamayasv2000@gmail.com) · [LinkedIn](https://www.linkedin.com/in/gerardoalbertoamaya/) · [GitHub](https://github.com/GerardoAmaya)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Gerardo%20Alberto%20Amaya-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/gerardoalbertoamaya/)
+[![GitHub](https://img.shields.io/badge/GitHub-GerardoAmaya-181717?logo=github&logoColor=white)](https://github.com/GerardoAmaya)
+[![Email](https://img.shields.io/badge/Email-gerardoamayasv2000@gmail.com-EA4335?logo=gmail&logoColor=white)](mailto:gerardoamayasv2000@gmail.com)
+[![Ubicación](https://img.shields.io/badge/El%20Salvador-Remoto%20tiempo%20completo-0F6B5C)](#)
 
 Construido en El Salvador. Disponible para trabajo remoto a tiempo completo.
 
-## Licencia
-
-MIT
+<sub>Publicado bajo licencia MIT. Los documentos de prueba son sintéticos: no
+contienen datos reales de ninguna empresa.</sub>
