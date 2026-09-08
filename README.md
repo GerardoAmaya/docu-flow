@@ -306,8 +306,3 @@ Para desplegar, ver [DEPLOY.md](DEPLOY.md).
 [![GitHub](https://img.shields.io/badge/GitHub-GerardoAmaya-181717?logo=github&logoColor=white)](https://github.com/GerardoAmaya)
 [![Email](https://img.shields.io/badge/Email-gerardoamayasv2000@gmail.com-EA4335?logo=gmail&logoColor=white)](mailto:gerardoamayasv2000@gmail.com)
 [![Ubicación](https://img.shields.io/badge/El%20Salvador-Remoto%20tiempo%20completo-0F6B5C)](#)
-
-Construido en El Salvador. Disponible para trabajo remoto a tiempo completo.
-
-<sub>Publicado bajo licencia MIT. Los documentos de prueba son sintéticos: no
-contienen datos reales de ninguna empresa.</sub>
