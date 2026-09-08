@@ -108,9 +108,7 @@ class LLMClient:
             raise
 
         latency_ms = int((time.perf_counter() - started) * 1000)
-        raw_text = "".join(
-            block.text for block in message.content if block.type == "text"
-        )
+        raw_text = "".join(block.text for block in message.content if block.type == "text")
 
         try:
             data = json.loads(_strip_code_fence(raw_text))

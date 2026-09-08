@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     # todas las llamadas desde el sitio desplegado.
     cors_origins: str = "http://localhost:3000"
 
-
     database_url: str = "postgresql+psycopg://docuflow:docuflow@db:5432/docuflow"
     redis_url: str = "redis://redis:6379/0"
 
@@ -45,6 +44,9 @@ class Settings(BaseSettings):
     embedding_provider: str = "voyage"
     voyage_api_key: str | None = None
     voyage_model: str = "voyage-4-lite"
+    # Segundos minimos entre llamadas a Voyage. La capa gratuita permite 3 por
+    # minuto, asi que 21 deja margen. Poner 0 para desactivar el espaciado.
+    voyage_min_interval_seconds: float = 21.0
     embedding_dim: int = 1024
 
     # Cuantas consultas distintas se recuerdan por proceso. Cada vector de
@@ -65,7 +67,6 @@ class Settings(BaseSettings):
 
     # Un campo extraído por debajo de este umbral entra a la cola de revisión.
     field_review_threshold: float = 0.85
-
 
     @property
     def cors_origin_list(self) -> list[str]:

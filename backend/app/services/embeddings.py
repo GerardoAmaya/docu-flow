@@ -21,6 +21,7 @@ import json
 import logging
 import re
 import threading
+import time
 import urllib.error
 import urllib.request
 from collections import OrderedDict
@@ -43,6 +44,29 @@ E5_PASSAGE_PREFIX = "passage: "
 _local_model = None
 _lock = threading.Lock()
 
+# Espaciado entre llamadas a la API. La capa gratuita de Voyage permite 3
+# peticiones por minuto: con doce documentos compitiendo, el backoff
+# exponencial choca y reintenta a ciegas hasta agotarse. Serializar las
+# llamadas a un ritmo sostenible convierte un fallo en una espera.
+_pace_lock = threading.Lock()
+_last_call_at = 0.0
+
+
+def _wait_for_turn() -> None:
+    """Bloquea hasta que haya pasado el intervalo minimo desde la ultima llamada."""
+    global _last_call_at
+    interval = settings.voyage_min_interval_seconds
+    if interval <= 0:
+        return
+    with _pace_lock:
+        elapsed = time.monotonic() - _last_call_at
+        if elapsed < interval:
+            wait = interval - elapsed
+            logger.debug("Esperando %.1fs por el limite de la API", wait)
+            time.sleep(wait)
+        _last_call_at = time.monotonic()
+
+
 # Cache de vectores de consulta. Sin tarjeta, Voyage limita a 3 peticiones por
 # minuto: cuatro preguntas seguidas en la demo y la cuarta falla. Las consultas
 # se repiten mucho mas que los documentos, asi que un cache chico evita casi
@@ -63,17 +87,17 @@ class TransientEmbeddingError(EmbeddingError):
 # Voyage
 # --------------------------------------------------------------------------
 
+
 @retry(
     retry=retry_if_exception_type(TransientEmbeddingError),
-    stop=stop_after_attempt(4),
-    wait=wait_exponential(multiplier=1, min=2, max=20),
+    stop=stop_after_attempt(6),
+    wait=wait_exponential(multiplier=2, min=5, max=60),
     reraise=True,
 )
 def _voyage_call(texts: list[str], input_type: str) -> list[list[float]]:
     if not settings.voyage_api_key:
         raise EmbeddingError(
-            "VOYAGE_API_KEY esta vacia. Ponela en el .env o usa "
-            "EMBEDDING_PROVIDER=local."
+            "VOYAGE_API_KEY esta vacia. Ponela en el .env o usa EMBEDDING_PROVIDER=local."
         )
 
     payload = {
@@ -84,6 +108,8 @@ def _voyage_call(texts: list[str], input_type: str) -> list[list[float]]:
         "input_type": input_type,
         "output_dimension": settings.embedding_dim,
     }
+
+    _wait_for_turn()
 
     request = urllib.request.Request(
         VOYAGE_URL,
@@ -123,6 +149,7 @@ def _voyage_embed(texts: list[str], input_type: str) -> list[list[float]]:
 # Modelo local
 # --------------------------------------------------------------------------
 
+
 def _get_local_model():
     """Importa sentence-transformers solo si se usa este proveedor.
 
@@ -161,6 +188,7 @@ def _local_embed(texts: list[str], prefix: str) -> list[list[float]]:
 # --------------------------------------------------------------------------
 # Interfaz publica
 # --------------------------------------------------------------------------
+
 
 def embed_passages(texts: list[str]) -> list[list[float]]:
     """Vectoriza fragmentos para guardar en la base."""

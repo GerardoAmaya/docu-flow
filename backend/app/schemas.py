@@ -28,9 +28,7 @@ class DocumentSummary(BaseModel):
 class UploadResponse(BaseModel):
     document: DocumentSummary
     # True cuando el archivo ya existia: no se reprocesa ni se cobran tokens.
-    duplicate: bool = Field(
-        description="True if this exact file was already uploaded before."
-    )
+    duplicate: bool = Field(description="True if this exact file was already uploaded before.")
 
 
 class DocumentList(BaseModel):

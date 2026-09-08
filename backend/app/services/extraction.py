@@ -47,6 +47,7 @@ ISO_CURRENCIES = {"USD", "EUR", "GTQ", "HNL", "CRC", "MXN", "NIO", "PAB"}
 # Schema que le exigimos al modelo
 # --------------------------------------------------------------------------
 
+
 class ExtractedValue(BaseModel):
     """Un campo con su procedencia. `source_text` es lo que permite verificarlo."""
 
@@ -135,15 +136,15 @@ Schema:
 
 def build_prompt(pages: list[tuple[int, str]]) -> str:
     blocks = [f"--- PAGE {number} ---\n{text}" for number, text in pages]
-    return (
-        "Extract the invoice fields from the following OCR output.\n\n"
-        + "\n\n".join(blocks)
+    return "Extract the invoice fields from the following OCR output.\n\n" + "\n\n".join(
+        blocks
     )
 
 
 # --------------------------------------------------------------------------
 # Normalizacion y anclaje en el OCR
 # --------------------------------------------------------------------------
+
 
 def normalize(text: str) -> str:
     """Minusculas sin acentos ni puntuacion, para comparar de forma tolerante."""
@@ -215,7 +216,12 @@ def _union_bbox(words: list[dict]) -> dict:
     y0 = min(w["y"] for w in words)
     x1 = max(w["x"] + w["w"] for w in words)
     y1 = max(w["y"] + w["h"] for w in words)
-    return {"x": round(x0, 5), "y": round(y0, 5), "w": round(x1 - x0, 5), "h": round(y1 - y0, 5)}
+    return {
+        "x": round(x0, 5),
+        "y": round(y0, 5),
+        "w": round(x1 - x0, 5),
+        "h": round(y1 - y0, 5),
+    }
 
 
 def _mean_conf(words: list[dict]) -> float:
@@ -228,6 +234,7 @@ def _mean_conf(words: list[dict]) -> float:
 # --------------------------------------------------------------------------
 # Validacion por reglas
 # --------------------------------------------------------------------------
+
 
 def parse_money(value: str | None) -> float | None:
     if not value:
@@ -346,6 +353,7 @@ def ground_extraction(
 # Extractor heuristico: sirve de modo mock y de linea base en los evals
 # --------------------------------------------------------------------------
 
+
 def heuristic_extraction(pages: list[tuple[int, str]]) -> dict:
     """Extractor por expresiones regulares, sin modelo.
 
@@ -354,8 +362,9 @@ def heuristic_extraction(pages: list[tuple[int, str]]) -> dict:
     linea base, decir "el modelo acierta 91%" no significa nada.
     """
     text = "\n".join(t for _, t in pages)
-    result: dict = {name: {"value": None, "source_text": None, "confidence": 0.0}
-                    for name in FIELD_NAMES}
+    result: dict = {
+        name: {"value": None, "source_text": None, "confidence": 0.0} for name in FIELD_NAMES
+    }
     result["line_items"] = []
 
     nits = NIT_PATTERN.findall(text)
@@ -367,13 +376,17 @@ def heuristic_extraction(pages: list[tuple[int, str]]) -> dict:
     invoice_no = re.search(r"\bFAC-\d{4}-\d{4}\b", text)
     if invoice_no:
         result["invoice_number"] = {
-            "value": invoice_no.group(), "source_text": invoice_no.group(), "confidence": 0.75,
+            "value": invoice_no.group(),
+            "source_text": invoice_no.group(),
+            "confidence": 0.75,
         }
 
     iso_date = re.search(r"\b20\d{2}-\d{2}-\d{2}\b", text)
     if iso_date:
         result["issue_date"] = {
-            "value": iso_date.group(), "source_text": iso_date.group(), "confidence": 0.7,
+            "value": iso_date.group(),
+            "source_text": iso_date.group(),
+            "confidence": 0.7,
         }
 
     if "USD" in text:
@@ -389,7 +402,9 @@ def heuristic_extraction(pages: list[tuple[int, str]]) -> dict:
     first_line = next((line.strip() for line in text.splitlines() if line.strip()), None)
     if first_line:
         result["vendor_name"] = {
-            "value": first_line[:200], "source_text": first_line[:200], "confidence": 0.45,
+            "value": first_line[:200],
+            "source_text": first_line[:200],
+            "confidence": 0.45,
         }
 
     return result

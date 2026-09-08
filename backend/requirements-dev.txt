@@ -1,0 +1,6 @@
+# Dependencias solo de desarrollo y CI. No van en la imagen de produccion:
+# el contenedor desplegado no corre tests ni linter.
+-r requirements.txt
+
+pytest==8.3.4
+ruff==0.9.2

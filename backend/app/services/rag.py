@@ -84,9 +84,7 @@ def build_context(hits: list[SearchHit]) -> str:
     blocks = []
     for index, hit in enumerate(hits):
         page = f", page {hit.page_number}" if hit.page_number else ""
-        blocks.append(
-            f"[excerpt {index}] (file: {hit.filename}{page})\n{hit.content}"
-        )
+        blocks.append(f"[excerpt {index}] (file: {hit.filename}{page})\n{hit.content}")
     return "\n\n".join(blocks)
 
 

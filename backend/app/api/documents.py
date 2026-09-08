@@ -38,9 +38,7 @@ def upload_document(
     except FileTooLarge as exc:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, str(exc)) from exc
 
-    existing = db.scalar(
-        select(Document).where(Document.content_hash == stored.content_hash)
-    )
+    existing = db.scalar(select(Document).where(Document.content_hash == stored.content_hash))
     if existing is not None:
         return UploadResponse(
             document=DocumentSummary.model_validate(existing), duplicate=True
@@ -64,9 +62,7 @@ def upload_document(
 
     process_document.delay(str(document.id))
 
-    return UploadResponse(
-        document=DocumentSummary.model_validate(document), duplicate=False
-    )
+    return UploadResponse(document=DocumentSummary.model_validate(document), duplicate=False)
 
 
 @router.get("", response_model=DocumentList)
@@ -81,9 +77,7 @@ def list_documents(
     if status_filter is not None:
         conditions.append(Document.status == status_filter)
 
-    total = db.scalar(
-        select(func.count()).select_from(Document).where(*conditions)
-    ) or 0
+    total = db.scalar(select(func.count()).select_from(Document).where(*conditions)) or 0
 
     rows = db.scalars(
         select(Document)

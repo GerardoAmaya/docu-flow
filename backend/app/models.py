@@ -158,9 +158,7 @@ class Invoice(Base):
     """
 
     __tablename__ = "invoices"
-    __table_args__ = (
-        CheckConstraint("total >= 0", name="ck_invoices_total_non_negative"),
-    )
+    __table_args__ = (CheckConstraint("total >= 0", name="ck_invoices_total_non_negative"),)
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     document_id: Mapped[uuid.UUID] = mapped_column(
@@ -233,7 +231,9 @@ class ExtractedField(Base):
     @property
     def final_value(self) -> str | None:
         """Lo que el humano dijo gana sobre lo que dijo el modelo."""
-        return self.corrected_value if self.corrected_value is not None else self.value_text
+        if self.corrected_value is not None:
+            return self.corrected_value
+        return self.value_text
 
 
 class LLMCall(Base):
@@ -257,7 +257,9 @@ class LLMCall(Base):
     cost_usd: Mapped[float] = mapped_column(Numeric(12, 6), nullable=False, default=0)
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    was_mocked: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
+    was_mocked: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default="false"
+    )
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True

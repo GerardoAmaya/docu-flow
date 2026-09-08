@@ -38,9 +38,7 @@ def get_page(
     cuando el usuario hace clic en un campo extraido.
     """
     page = db.scalar(
-        select(Page).where(
-            Page.document_id == document_id, Page.page_number == page_number
-        )
+        select(Page).where(Page.document_id == document_id, Page.page_number == page_number)
     )
     if page is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Page not found.")
@@ -52,9 +50,7 @@ def get_page_image(
     document_id: uuid.UUID, page_number: int, db: Session = Depends(get_db)
 ) -> FileResponse:
     page = db.scalar(
-        select(Page).where(
-            Page.document_id == document_id, Page.page_number == page_number
-        )
+        select(Page).where(Page.document_id == document_id, Page.page_number == page_number)
     )
     if page is None or not page.image_path:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Page image not found.")

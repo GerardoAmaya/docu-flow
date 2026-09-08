@@ -16,8 +16,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY requirements.txt requirements-dev.txt ./
+
+# En desarrollo instalamos tambien pytest y ruff para poder correr los tests
+# dentro del contenedor. La imagen de produccion se construye con
+# INSTALL_DEV=false y queda sin esas dependencias.
+ARG INSTALL_DEV=true
+RUN if [ "$INSTALL_DEV" = "true" ]; then \
+      pip install -r requirements-dev.txt; \
+    else \
+      pip install -r requirements.txt; \
+    fi
 
 COPY . .
 

@@ -7,23 +7,23 @@ embeddings en el 6; sus TODO estan marcados abajo.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import delete
 
 from app.core.config import settings
 from app.core.db import SessionLocal
 from app.models import Chunk, Document, DocumentStatus, ExtractedField, Invoice, Page
+from app.services.embeddings import chunk_text, embed_passages
 from app.services.extraction import (
-    InvoiceExtraction,
     SYSTEM_PROMPT,
+    InvoiceExtraction,
     build_prompt,
     ground_extraction,
     heuristic_extraction,
     parse_date,
     parse_money,
 )
-from app.services.embeddings import chunk_text, embed_passages
 from app.services.llm import LLMClient
 from app.services.ocr import ocr_document
 from app.workers.celery_app import celery_app
@@ -39,8 +39,10 @@ def ping() -> str:
 @celery_app.task(
     name="docuflow.process_document",
     bind=True,
-    max_retries=3,
-    default_retry_delay=30,
+    max_retries=5,
+    # Con el espaciado de la API un documento puede tardar minutos. Reintentar
+    # a los 30 segundos solo agrega presion sobre el mismo limite.
+    default_retry_delay=120,
 )
 def process_document(self, document_id: str) -> dict:
     """Corre el pipeline completo sobre un documento.
@@ -101,7 +103,7 @@ def process_document(self, document_id: str) -> dict:
             if low_confidence_pages or fields_needing_review
             else DocumentStatus.completed
         )
-        document.processed_at = datetime.now(timezone.utc)
+        document.processed_at = datetime.now(UTC)
         db.commit()
 
         logger.info(
@@ -130,7 +132,7 @@ def process_document(self, document_id: str) -> dict:
             document.error_message = str(exc)[:2000]
             db.commit()
         logger.exception("Failed to process document %s", document_id)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
     finally:
         db.close()
 
@@ -210,7 +212,9 @@ def _index_chunks(db, document, ocr_pages) -> int:
 
     vectors = embed_passages([content for _, content in pending])
 
-    for index, ((page_number, content), vector) in enumerate(zip(pending, vectors)):
+    for index, ((page_number, content), vector) in enumerate(
+        zip(pending, vectors, strict=True)
+    ):
         db.add(
             Chunk(
                 document_id=document.id,

@@ -51,9 +51,7 @@ def detect_mime_type(header: bytes) -> str:
     for signature, mime in MAGIC_SIGNATURES.items():
         if header.startswith(signature):
             return mime
-    raise UnsupportedFileType(
-        "Unsupported file type. Accepted: PDF, JPEG, PNG, TIFF."
-    )
+    raise UnsupportedFileType("Unsupported file type. Accepted: PDF, JPEG, PNG, TIFF.")
 
 
 def _shard_path(content_hash: str, extension: str) -> Path:
@@ -93,9 +91,7 @@ def store_upload(stream: BinaryIO) -> StoredFile:
             while chunk := stream.read(CHUNK_SIZE):
                 size += len(chunk)
                 if size > max_bytes:
-                    raise FileTooLarge(
-                        f"File exceeds the {settings.max_upload_mb} MB limit."
-                    )
+                    raise FileTooLarge(f"File exceeds the {settings.max_upload_mb} MB limit.")
                 hasher.update(chunk)
                 out.write(chunk)
 

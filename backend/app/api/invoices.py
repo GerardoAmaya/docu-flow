@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select, text as sql_text
+from sqlalchemy import func, select
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -92,7 +93,7 @@ def correct_field(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Field not found.")
 
     field.corrected_value = correction.corrected_value
-    field.reviewed_at = datetime.now(timezone.utc)
+    field.reviewed_at = datetime.now(UTC)
     field.reviewed_by = correction.reviewed_by
     field.needs_review = False
 
@@ -100,9 +101,7 @@ def correct_field(
     # que alimenta los reportes. Es el bug silencioso mas facil de cometer aca.
     kind = INVOICE_COLUMNS.get(field.field_name)
     if kind:
-        invoice = db.scalar(
-            select(Invoice).where(Invoice.document_id == field.document_id)
-        )
+        invoice = db.scalar(select(Invoice).where(Invoice.document_id == field.document_id))
         if invoice is not None:
             raw = correction.corrected_value
             if kind == "money":
@@ -223,9 +222,10 @@ def invoice_summary(
 
     # Cuantas facturas aportaron cada monto: un total sobre 9 de 12 facturas
     # no es el total, y el consumidor de la API tiene que poder saberlo.
-    complete = db.scalar(
-        select(func.count()).select_from(Invoice).where(Invoice.total.isnot(None))
-    ) or 0
+    complete = (
+        db.scalar(select(func.count()).select_from(Invoice).where(Invoice.total.isnot(None)))
+        or 0
+    )
 
     vendors = db.execute(
         select(
@@ -248,9 +248,7 @@ def invoice_summary(
         earliest_issue_date=totals[4],
         latest_issue_date=totals[5],
         by_vendor=[
-            VendorTotal(
-                vendor_name=v[0], invoice_count=v[1], total_sum=float(v[2])
-            )
+            VendorTotal(vendor_name=v[0], invoice_count=v[1], total_sum=float(v[2]))
             for v in vendors
         ],
     )

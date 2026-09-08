@@ -13,7 +13,9 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
-    task_time_limit=600,
-    task_soft_time_limit=540,
+    # Amplio a proposito: con el espaciado de la API de embeddings, un
+    # documento de varias paginas puede pasar varios minutos esperando turno.
+    task_time_limit=1800,
+    task_soft_time_limit=1740,
     result_expires=3600,
 )

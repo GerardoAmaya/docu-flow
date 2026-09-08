@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -42,7 +42,7 @@ STRANDED_STATES = [
 
 
 def reap(minutes: int, dry_run: bool) -> int:
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    cutoff = datetime.now(UTC) - timedelta(minutes=minutes)
     db = SessionLocal()
     try:
         stranded = db.scalars(
@@ -58,9 +58,7 @@ def reap(minutes: int, dry_run: bool) -> int:
             logger.info("No hay documentos atascados.")
             return 0
 
-        logger.info(
-            "%s documentos atascados mas de %s minutos:", len(stranded), minutes
-        )
+        logger.info("%s documentos atascados mas de %s minutos:", len(stranded), minutes)
         for document in stranded:
             logger.info("  %s (%s)", document.filename, document.status.value)
 
@@ -77,8 +75,7 @@ def reap(minutes: int, dry_run: bool) -> int:
             previous = document.status.value
             document.status = DocumentStatus.pending
             document.error_message = (
-                f"Reencolado automaticamente: quedo en {previous} "
-                "tras un reinicio del worker."
+                f"Reencolado automaticamente: quedo en {previous} tras un reinicio del worker."
             )
         db.commit()
 
